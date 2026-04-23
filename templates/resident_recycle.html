@@ -1,0 +1,92 @@
+{% extends "base_phone.html" %}
+{% set title = "Recycling Log" %}
+
+{% block content %}
+<div class="topbar">
+  <button class="back" onclick="window.location.href='/resident/home'">⬅ Back</button>
+  <div style="font-weight:700">Recycling Log</div>
+  <div></div>
+</div>
+
+<h1>Recycling Log</h1>
+
+<div class="panel">
+  <label>Waste Type</label>
+  <select id="wasteType">
+    <option value="Plastic">Plastic</option>
+    <option value="Paper">Paper</option>
+    <option value="Metal">Metal</option>
+    <option value="Glass">Glass</option>
+    <option value="E-Waste">E-Waste</option>
+  </select>
+
+  <label>Weight (kg)</label>
+  <input id="weight" type="number" step="0.01" placeholder="e.g. 1.25" />
+
+  <label>Upload Image (optional)</label>
+  <input id="imageFile" type="file" accept="image/*" capture="environment" />
+  <div class="hint">Tip: take a photo of the items you submit. This helps the collector and admin verify.</div>
+
+  <div class="row">
+    <button onclick="submitLog()">Submit</button>
+    <button class="secondary" onclick="loadRecent()">Refresh</button>
+  </div>
+  <div id="msg" class="status" style="display:none"></div>
+</div>
+
+<div class="panel">
+  <div class="row space">
+    <div style="font-weight:700">Recent Submissions</div>
+    <div class="dim">(latest 10)</div>
+  </div>
+  <div id="list" class="list"></div>
+</div>
+
+<script>
+  function showMsg(text, ok=true){
+    const m = document.getElementById('msg');
+    m.style.display = 'block';
+    m.className = 'status ' + (ok ? 'ok' : 'err');
+    m.innerText = text;
+  }
+
+  async function submitLog(){
+    const fd = new FormData();
+    fd.append('waste_type', document.getElementById('wasteType').value);
+    fd.append('weight', document.getElementById('weight').value);
+    const f = document.getElementById('imageFile')?.files?.[0];
+    if(f) fd.append('image', f);
+    const res = await fetch('/api/resident/recycling_log', { method:'POST', body: fd });
+    const data = await res.json();
+    if(!res.ok){ showMsg(data.error || 'Failed', false); return; }
+    showMsg('Submitted! Admin will assign a collector to collect and verify.');
+    document.getElementById('weight').value = '';
+    document.getElementById('imageFile').value = '';
+    loadRecent();
+  }
+
+  async function loadRecent(){
+    const res = await fetch('/api/resident/summary');
+    const data = await res.json();
+    const box = document.getElementById('list');
+    box.innerHTML = '';
+    if(!res.ok){
+      box.innerHTML = `<div class="item">${data.error || 'Failed to load logs'}</div>`;
+      return;
+    }
+    const logs = data.recent_logs || [];
+    if(!logs.length){
+      box.innerHTML = `<div class="item">No logs yet.</div>`;
+      return;
+    }
+    for(const r of logs){
+      const pts = (r.points_earned ?? 0) ? ` • ${r.points_earned} pts` : '';
+      const st = r.status ? ` • <b>${r.status}</b>` : '';
+      const img = r.image_url ? `<img src="/static/${r.image_url}" style="width:100%;max-height:140px;object-fit:cover;border-radius:10px;border:1px solid #eee;margin-top:8px" />` : '';
+      box.innerHTML += `<div class="item" style="padding:14px">#${r.log_id} — ${r.waste_type}, ${r.weight}kg${pts}${st}<div class="dim">${r.created_at}</div>${img}</div>`;
+    }
+  }
+
+  loadRecent();
+</script>
+{% endblock %}

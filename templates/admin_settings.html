@@ -1,0 +1,91 @@
+{% extends "base_phone.html" %}
+{% set title = "System Settings" %}
+
+{% block content %}
+<div class="topbar">
+  <button class="secondary" onclick="window.location.href='/admin/home'">Back</button>
+  <div></div>
+  <button class="secondary" onclick="window.location.href='/admin/profile'">Profile</button>
+</div>
+
+<h1>System Settings</h1>
+
+<div class="panel">
+  <div class="hint">Update global behavior for points calculation and pickup reminders.</div>
+  <div class="row" style="margin-top:10px; gap:10px; flex-wrap:wrap">
+    <div style="flex:1; min-width:220px">
+      <div class="label">Reward Rate</div>
+      <div class="hint">Points per KG (or per unit) used when awarding recycling points.</div>
+      <input id="reward_rate" type="number" min="0" step="1" placeholder="e.g. 10" />
+    </div>
+    <div style="flex:1; min-width:220px">
+      <div class="label">Pickup Reminders</div>
+      <div class="hint">Enable/disable pickup reminder notifications.</div>
+      <select id="pickup_reminders_enabled">
+        <option value="1">Enabled</option>
+        <option value="0">Disabled</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="row" style="margin-top:12px; gap:10px">
+    <button onclick="saveAll()">Save Settings</button>
+    <button class="secondary" onclick="load()">Reload</button>
+  </div>
+</div>
+
+<div class="panel" id="msg" style="display:none"></div>
+
+<script>
+  function showMsg(text, ok=true){
+    const el = document.getElementById('msg');
+    el.style.display = 'block';
+    el.innerText = text;
+    el.style.borderColor = ok ? '#cfe8d9' : '#f3c1c1';
+  }
+
+  async function load(){
+    try{
+      const res = await fetch('/api/admin/settings');
+      const data = await res.json();
+      if(!res.ok) throw new Error(data?.error || 'Failed to load settings');
+      const s = data.settings || {};
+      document.getElementById('reward_rate').value = s.reward_rate ?? '10';
+      document.getElementById('pickup_reminders_enabled').value = s.pickup_reminders_enabled ?? '1';
+      document.getElementById('msg').style.display = 'none';
+    }catch(e){
+      showMsg(e.message || 'Error loading settings', false);
+    }
+  }
+
+  async function saveKey(key, value){
+    const res = await fetch('/api/admin/settings', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({key, value})
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data?.error || 'Save failed');
+  }
+
+  async function saveAll(){
+    try{
+      const rr = document.getElementById('reward_rate').value;
+      const pr = document.getElementById('pickup_reminders_enabled').value;
+
+      if(rr === '' || Number.isNaN(Number(rr)) || Number(rr) < 0){
+        showMsg('Reward rate must be a non-negative number.', false);
+        return;
+      }
+
+      await saveKey('reward_rate', String(parseInt(rr,10)));
+      await saveKey('pickup_reminders_enabled', pr === '0' ? '0' : '1');
+      showMsg('Settings saved successfully ✅', true);
+    }catch(e){
+      showMsg(e.message || 'Error saving settings', false);
+    }
+  }
+
+  load();
+</script>
+{% endblock %}

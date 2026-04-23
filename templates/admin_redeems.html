@@ -1,0 +1,148 @@
+{% extends "base_phone.html" %}
+{% set title = "Reward Redeem Management" %}
+
+{% block content %}
+<div class="topbar">
+  <button class="back" onclick="window.location.href='/admin/home'">⬅ Back</button>
+  <div style="font-weight:700">Redeem Management</div>
+  <div></div>
+</div>
+
+<h1>Reward Points Redeem Management</h1>
+
+<div id="msg" class="status" style="display:none"></div>
+
+<div class="panel">
+  <div style="font-weight:700">Load Reward Items</div>
+  <div class="row">
+    <button class="secondary" onclick="loadItems()">Load Reward Items</button>
+  </div>
+  <div id="items" class="list"></div>
+</div>
+
+<div class="panel">
+  <div style="font-weight:700">Add / Update Reward Item</div>
+  <div class="hint">Reward ID (leave blank to add)</div>
+  <input id="rid" placeholder="e.g. 1" />
+  <label>Name</label>
+  <input id="name" placeholder="e.g. Eco Tote Bag" />
+  <label>Cost Points</label>
+  <input id="cost" type="number" placeholder="e.g. 100" />
+  <label>Description</label>
+  <input id="desc" placeholder="e.g. Reusable tote bag" />
+  <label>Active? (1=active, 0=inactive)</label>
+  <input id="active" type="number" value="1" />
+  <div class="row">
+    <button onclick="saveItem()">Save Reward Item</button>
+  </div>
+</div>
+
+<div class="panel">
+  <div style="font-weight:700">Load Redemptions</div>
+  <div class="row">
+    <button class="secondary" onclick="loadRedemptions()">Load Redemptions</button>
+  </div>
+  <div id="reds" class="list"></div>
+</div>
+
+<script>
+  function showMsg(text, ok=true){
+    const m = document.getElementById('msg');
+    m.style.display='block';
+    m.className='status ' + (ok ? 'ok' : 'err');
+    m.innerText=text;
+  }
+
+  async function loadItems(){
+    const res = await fetch('/api/admin/reward_items');
+    const data = await res.json();
+    const box = document.getElementById('items');
+    box.innerHTML='';
+    if(!res.ok){ box.innerHTML = `<div class="item">${data.error || 'Failed'}</div>`; return; }
+    const rows = data.items || [];
+    if(!rows.length){ box.innerHTML = `<div class="item">No reward items.</div>`; return; }
+    for(const it of rows){
+      box.innerHTML += `
+        <div class="item">
+          <div style="font-weight:700">#${it.reward_id} — ${it.name}</div>
+          <div class="dim">Cost: ${it.cost_points} pts • Active: ${it.is_active}</div>
+          <div class="dim">${it.description || ''}</div>
+          <div class="row" style="margin-top:8px">
+            <button class="secondary" onclick="prefill(${it.reward_id}, '${(it.name||'').replace(/'/g,"\\'")}', ${it.cost_points}, '${(it.description||'').replace(/'/g,"\\'")}', ${it.is_active})">Edit</button>
+            <button class="secondary" onclick="deactivate(${it.reward_id})">Deactivate Item</button>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  function prefill(id, name, cost, desc, active){
+    document.getElementById('rid').value = id;
+    document.getElementById('name').value = name;
+    document.getElementById('cost').value = cost;
+    document.getElementById('desc').value = desc;
+    document.getElementById('active').value = active;
+    showMsg('Loaded item into form.');
+  }
+
+  async function saveItem(){
+    const rid = document.getElementById('rid').value.trim();
+    const payload = {
+      name: document.getElementById('name').value.trim(),
+      cost_points: parseInt(document.getElementById('cost').value || '0'),
+      description: document.getElementById('desc').value.trim(),
+      is_active: parseInt(document.getElementById('active').value || '1')
+    };
+    let url = '/api/admin/reward_items';
+    let method = 'POST';
+    if(rid){ url = `/api/admin/reward_items/${rid}`; method = 'PUT'; }
+    const res = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if(!res.ok){ showMsg(data.error || 'Save failed', false); return; }
+    showMsg('Saved!');
+    loadItems();
+  }
+
+  async function deactivate(id){
+    const res = await fetch(`/api/admin/reward_items/${id}`, { method:'DELETE' });
+    const data = await res.json();
+    if(!res.ok){ showMsg(data.error || 'Failed', false); return; }
+    showMsg('Deactivated');
+    loadItems();
+  }
+
+  async function loadRedemptions(){
+    const res = await fetch('/api/admin/redemptions');
+    const data = await res.json();
+    const box = document.getElementById('reds');
+    box.innerHTML='';
+    if(!res.ok){ box.innerHTML = `<div class="item">${data.error || 'Failed'}</div>`; return; }
+    const rows = data.redemptions || [];
+    if(!rows.length){ box.innerHTML = `<div class="item">No redemptions yet.</div>`; return; }
+    for(const r of rows){
+      const claimBtn = (r.status === 'Processing')
+        ? `<button onclick="claim(${r.redemption_id})">Mark Claimed</button>`
+        : `<button class="secondary" disabled>Claimed</button>`;
+      box.innerHTML += `
+        <div class="item">
+          <div style="font-weight:700">#${r.redemption_id} — ${r.reward_name}</div>
+          <div class="dim">Resident: #${r.user_id} • ${r.user_name} • Spent: ${r.points_spent} pts</div>
+          <div class="dim">Status: <b>${r.status}</b> • ${r.redeemed_at}</div>
+          <div class="row" style="margin-top:8px">${claimBtn}</div>
+        </div>
+      `;
+    }
+  }
+
+  async function claim(id){
+    const res = await fetch(`/api/admin/redemptions/${id}/claim`, { method:'POST' });
+    const data = await res.json();
+    if(!res.ok){ showMsg(data.error || 'Failed', false); return; }
+    showMsg('Marked Claimed');
+    loadRedemptions();
+  }
+
+  loadItems();
+  loadRedemptions();
+</script>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "base_phone.html" %}
+{% set title = "Pickup Schedules" %}
+
+{% block content %}
+<div class="topbar">
+  <button class="back" onclick="window.location.href='/admin/home'">⬅ Back</button>
+  <div style="font-weight:700">Pickup Schedules</div>
+  <button class="secondary" onclick="loadAll()">View All Schedules</button>
+</div>
+
+<h1>Pickup Schedule Management</h1>
+
+<div id="msg" class="status" style="display:none"></div>
+
+<div class="panel">
+  <div id="list" class="list"></div>
+</div>
+
+<script>
+  function showMsg(t, ok=true){
+    const m = document.getElementById('msg');
+    m.style.display='block';
+    m.className='status ' + (ok ? 'ok' : 'err');
+    m.innerText=t;
+  }
+  async function del(id){
+    const res = await fetch(`/api/admin/schedules/${id}`, {method:'DELETE'});
+    const data = await res.json();
+    if(!res.ok){ showMsg(data.error || 'Delete failed', false); return; }
+    showMsg('Deleted');
+    loadAll();
+  }
+  async function loadAll(){
+    const res = await fetch('/api/admin/schedules');
+    const data = await res.json();
+    const box = document.getElementById('list');
+    box.innerHTML='';
+    if(!res.ok){ box.innerHTML = `<div class="item">${data.error || 'Failed'}</div>`; return; }
+    const rows = data.schedules || [];
+    if(!rows.length){ box.innerHTML = `<div class="item">No schedules.</div>`; return; }
+    for(const s of rows){
+      box.innerHTML += `
+        <div class="item">
+          <div style="font-weight:700">Zone ${s.zone_id}: ${s.zone_name}</div>
+          <div class="dim">${s.day} — ${s.time}</div>
+          <div class="row" style="margin-top:8px">
+            <button class="secondary" onclick="del(${s.schedule_id})">Delete</button>
+          </div>
+        </div>
+      `;
+    }
+  }
+  loadAll();
+</script>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "base_phone.html" %}
+{% set title = "Collector Schedule" %}
+
+{% block content %}
+<div class="topbar">
+  <button class="back" onclick="window.location.href='/collector/home'">⬅ Back</button>
+  <div style="font-weight:700">Daily Schedule</div>
+  <button class="secondary" onclick="load()">Refresh</button>
+</div>
+
+<h1>Daily Schedule</h1>
+
+<div class="panel">
+  <div id="list" class="list"></div>
+</div>
+
+<script>
+  async function load(){
+    const res = await fetch('/api/collector/daily_schedule');
+    const data = await res.json();
+    const box = document.getElementById('list');
+    box.innerHTML='';
+    if(!res.ok){ box.innerHTML = `<div class="item">${data.error || 'Failed'}</div>`; return; }
+    const rows = data.schedule || [];
+    if(!rows.length){ box.innerHTML = `<div class="item">No schedule found.</div>`; return; }
+    for(const r of rows){
+      box.innerHTML += `
+        <div class="item">
+          <div style="font-weight:700">Zone ${r.zone_id}: ${r.zone_name}</div>
+          <div class="dim">Pickup: ${r.day} — ${r.time}</div>
+        </div>
+      `;
+    }
+  }
+  load();
+</script>
+{% endblock %}

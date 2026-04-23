@@ -1,0 +1,239 @@
+{% extends "base_phone.html" %}
+{% set title = role|capitalize ~ " Profile" %}
+
+{% block content %}
+<div class="topbar">
+  <button class="back" onclick="window.location.href='/' + '{{ role }}' + '/home'">⬅ Back</button>
+  <div style="font-weight:700">Profile</div>
+  <div></div>
+</div>
+
+<h1>{{ role|capitalize }} Profile</h1>
+
+<div class="panel">
+  <div class="row space">
+    <div>
+      <div class="label">User ID</div>
+      <div style="font-weight:700" id="userId">...</div>
+    </div>
+    <div style="text-align:right">
+      <div class="label">Role</div>
+      <div style="font-weight:700">{{ role }}</div>
+    </div>
+  </div>
+
+  <label>Name</label>
+  <input id="name" placeholder="Your name" />
+
+  <label>Phone Number</label>
+  <input id="phone" placeholder="e.g. 0123456789" inputmode="numeric" pattern="[0-9]*" />
+
+  <label>Zone</label>
+  {% if role == 'resident' %}
+  <select id="zoneSelect"></select>
+  <div class="hint">Select your pickup zone.</div>
+  {% elif role == 'collector' %}
+  <div class="hint">Assigned Zones: <b id="collectorZones">-</b></div>
+  {% endif %}
+
+  {% if role == 'resident' %}
+  <label>Address</label>
+  <textarea id="address" rows="3" placeholder="Your house address"></textarea>
+
+  <div class="panel" style="margin-top:12px">
+    <div class="row space" style="margin:0">
+      <div style="font-weight:700">Pick Address on Map</div>
+      <button class="secondary" onclick="useMyLocation()">Use My Location</button>
+    </div>
+    <div class="hint" style="margin-top:8px">
+      Tip: After you tap "Use My Location", we will auto-fill the address text.
+    </div>
+    <div id="map" style="height:240px;border-radius:12px;overflow:hidden;border:1px solid #e7e7ef;margin-top:10px"></div>
+    <input type="hidden" id="address_place" />
+    <input type="hidden" id="address_lat" />
+    <input type="hidden" id="address_lng" />
+  </div>
+  {% endif %}
+
+  <div class="row">
+    <button onclick="save()">Save Profile</button>
+    <button class="secondary" onclick="load()">Refresh</button>
+  </div>
+
+  <div class="row" style="margin-top:18px">
+    <button class="danger" onclick="logout()" style="width:100%">Logout</button>
+  </div>
+
+  <div id="msg" class="status" style="display:none"></div>
+</div>
+
+<script>
+  // --- Map picker for resident address (Leaflet + OpenStreetMap) ---
+  let _map, _marker;
+
+  function loadLeafletOnce(){
+    return new Promise((resolve, reject) => {
+      if(window.L) return resolve();
+      const css = document.createElement('link');
+      css.rel = 'stylesheet';
+      css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(css);
+      const js = document.createElement('script');
+      js.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      js.onload = () => resolve();
+      js.onerror = () => reject(new Error('Failed to load map library'));
+      document.head.appendChild(js);
+    });
+  }
+
+  function setPoint(lat, lng, placeText){
+    const la = document.getElementById('address_lat');
+    const lo = document.getElementById('address_lng');
+    const pl = document.getElementById('address_place');
+    if(la) la.value = lat;
+    if(lo) lo.value = lng;
+    if(pl && placeText) pl.value = placeText;
+    if(_map){
+      if(!_marker){ _marker = L.marker([lat,lng]).addTo(_map); }
+      else { _marker.setLatLng([lat,lng]); }
+      _map.setView([lat,lng], 16);
+    }
+  }
+
+  async function reverseGeocodeAndFill(lat, lng){
+    try{
+      // Uses public Nominatim reverse geocoder
+      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}`;
+      const res = await fetch(url, {headers: {'Accept':'application/json'}});
+      if(!res.ok) return;
+      const j = await res.json();
+      const display = j.display_name || '';
+    const addr = document.getElementById('address');
+      if(addr && display) addr.value = display;
+      setPoint(lat, lng, display);
+    }catch(e){
+      // ignore geocode errors; user can type address manually
+    }
+  }
+
+  async function initMapFromProfile(p){
+    const mapDiv = document.getElementById('map');
+    if(!mapDiv) return;
+    await loadLeafletOnce();
+    const lat = (p && p.address_lat) ? Number(p.address_lat) : 3.1390;
+    const lng = (p && p.address_lng) ? Number(p.address_lng) : 101.6869;
+    _map = L.map('map', {zoomControl:true}).setView([lat, lng], (p && p.address_lat) ? 16 : 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(_map);
+    if(p && p.address_lat && p.address_lng){
+      setPoint(Number(p.address_lat), Number(p.address_lng), p.address_place || '');
+    }
+    _map.on('click', async (e) => {
+      const lt = e.latlng.lat;
+      const ln = e.latlng.lng;
+      setPoint(lt, ln, '');
+      await reverseGeocodeAndFill(lt, ln);
+    });
+  }
+
+  async function useMyLocation(){
+    if(!navigator.geolocation){ showMsg('Geolocation not supported', false); return; }
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const lt = pos.coords.latitude;
+      const ln = pos.coords.longitude;
+      setPoint(lt, ln, '');
+      await reverseGeocodeAndFill(lt, ln);
+    }, () => showMsg('Unable to get your location', false), {enableHighAccuracy:true, timeout: 10000});
+  }
+
+  function showMsg(text, ok=true){
+    const m = document.getElementById('msg');
+    m.style.display = 'block';
+    m.className = 'status ' + (ok ? 'ok' : 'err');
+    m.innerText = text;
+  }
+
+
+  async function loadZones(){
+    const sel = document.getElementById('zoneSelect');
+    if(!sel) return [];
+    try{
+      const res = await fetch('/api/zones');
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error||'Failed');
+      return data.zones || [];
+    }catch(e){
+      return [];
+    }
+  }
+
+  function renderZones(zones, selectedId){
+    const sel = document.getElementById('zoneSelect');
+    if(!sel) return;
+    if(!zones.length){
+      sel.innerHTML = '<option value="">No zones</option>';
+      return;
+    }
+    sel.innerHTML = '<option value="">Select Zone</option>' + zones.map(z=>`<option value="${z.zone_id}">${z.name} (ID: ${z.zone_id})</option>`).join('');
+    if(selectedId) sel.value = String(selectedId);
+  }
+  async function load(){
+    const res = await fetch('/api/profile');
+    const data = await res.json();
+    if(!res.ok){ showMsg(data.error || 'Failed to load profile', false); return; }
+    const p = data.profile;
+    // zone UI
+    if(document.getElementById('collectorZones')){
+      const cz = (p.collector_zones || []);
+      document.getElementById('collectorZones').innerText = cz.length ? cz.join(', ') : (p.zone_id ?? '-');
+    }
+    const zones = await loadZones();
+    renderZones(zones, p.zone_id);
+    document.getElementById('userId').innerText = p.user_id;
+    document.getElementById('name').value = p.name || '';
+    document.getElementById('phone').value = p.phone || '';
+    const addr = document.getElementById('address');
+    if(addr) addr.value = p.address || '';
+    const pl = document.getElementById('address_place');
+    const la = document.getElementById('address_lat');
+    const lo = document.getElementById('address_lng');
+    if(pl) pl.value = p.address_place || '';
+    if(la) la.value = (p.address_lat !== null && p.address_lat !== undefined) ? p.address_lat : '';
+    if(lo) lo.value = (p.address_lng !== null && p.address_lng !== undefined) ? p.address_lng : '';
+    document.title = `Profile - ${p.name || ''}`;
+    document.getElementById('msg').style.display = 'none';
+    await initMapFromProfile(p);
+  }
+
+  async function save(){
+    const payload = {
+      name: document.getElementById('name').value.trim(),
+      phone: document.getElementById('phone').value.trim(),
+    };
+    const z = document.getElementById('zoneSelect');
+    if(z) payload.zone_id = (z.value || '').trim();
+    const addr = document.getElementById('address');
+    if(addr) payload.address = addr.value.trim();
+    const pl = document.getElementById('address_place');
+    const la = document.getElementById('address_lat');
+    const lo = document.getElementById('address_lng');
+    if(pl) payload.address_place = pl.value || '';
+    if(la && la.value !== '') payload.address_lat = parseFloat(la.value);
+    if(lo && lo.value !== '') payload.address_lng = parseFloat(lo.value);
+    const res = await fetch('/api/profile', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if(!res.ok){ showMsg(data.error || 'Save failed', false); return; }
+    showMsg('Saved!');
+  }
+
+  async function logout(){
+    await fetch('/api/logout', {method:'POST'});
+    window.location.href = '/';
+  }
+
+  load();
+</script>
+{% endblock %}

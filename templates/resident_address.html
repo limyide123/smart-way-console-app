@@ -1,0 +1,164 @@
+{% extends "base_phone.html" %}
+{% set title = "My Address" %}
+
+{% block content %}
+<div class="topbar">
+  <button class="back" onclick="window.location.href='/resident/home'">⬅ Back</button>
+  <div style="font-weight:700">My Address</div>
+  <div></div>
+</div>
+
+<h1>Resident Address</h1>
+
+<div class="panel">
+  <div class="hint">Your address will be stored in the database and shown in your Profile.</div>
+  <label>Address</label>
+  <textarea id="address" rows="5" placeholder="e.g. No. 12, Jalan ..."></textarea>
+  <div class="panel" style="margin-top:12px">
+    <div class="row space" style="margin:0">
+      <div style="font-weight:700">Pick Address on Map</div>
+      <button class="secondary" onclick="useMyLocation()">Use My Location</button>
+    </div>
+    <div class="hint" style="margin-top:8px">After you tap "Use My Location", the address text will be auto-filled.</div>
+    <div id="map" style="height:240px;border-radius:12px;overflow:hidden;border:1px solid #e7e7ef;margin-top:10px"></div>
+    <input type="hidden" id="address_place" />
+    <input type="hidden" id="address_lat" />
+    <input type="hidden" id="address_lng" />
+  </div>
+  <div class="row">
+    <button onclick="save()">Save Address</button>
+    <button class="secondary" onclick="load()">Refresh</button>
+  </div>
+  <div id="msg" class="status" style="display:none"></div>
+</div>
+
+<script>
+  let _map, _marker;
+  function loadLeafletOnce(){
+    return new Promise((resolve, reject) => {
+      if(window.L) return resolve();
+      const css = document.createElement('link');
+      css.rel = 'stylesheet';
+      css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(css);
+      const js = document.createElement('script');
+      js.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      js.onload = () => resolve();
+      js.onerror = () => reject(new Error('Failed to load map library'));
+      document.head.appendChild(js);
+    });
+  }
+
+  function setPoint(lat, lng, placeText){
+    document.getElementById('address_lat').value = lat;
+    document.getElementById('address_lng').value = lng;
+    if(placeText) document.getElementById('address_place').value = placeText;
+    if(_map){
+      if(!_marker) _marker = L.marker([lat,lng]).addTo(_map);
+      else _marker.setLatLng([lat,lng]);
+      _map.setView([lat,lng], 16);
+    }
+  }
+
+  async function initMap(p){
+    const mapDiv = document.getElementById('map');
+    if(!mapDiv) return;
+    await loadLeafletOnce();
+    const lat = (p && p.address_lat) ? Number(p.address_lat) : 3.1390;
+    const lng = (p && p.address_lng) ? Number(p.address_lng) : 101.6869;
+    _map = L.map('map').setView([lat,lng], (p && p.address_lat) ? 16 : 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(_map);
+    if(p && p.address_lat && p.address_lng){ setPoint(Number(p.address_lat), Number(p.address_lng), p.address_place || ''); }
+    _map.on('click', async (e) => {
+      setPoint(e.latlng.lat, e.latlng.lng, '');
+      await reverseGeocodeAndFill(e.latlng.lat, e.latlng.lng);
+    });
+  }
+
+async function reverseGeocodeAndFill(lat, lng){
+  try{
+    const url =
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2` +
+      `&lat=${encodeURIComponent(lat)}` +
+      `&lon=${encodeURIComponent(lng)}` +
+      `&zoom=18&addressdetails=1&accept-language=en`;
+
+    const res = await fetch(url, { headers: { "Accept": "application/json" } });
+    if(!res.ok) throw new Error('Reverse geocode failed');
+
+    const data = await res.json();
+
+    const a = data.address || {};
+    const parts = [
+      (a.house_number && a.road) ? `${a.house_number} ${a.road}` : (a.road || ""),
+      a.neighbourhood || a.suburb || "",
+      a.city || a.town || a.village || "",
+      a.state || "",
+      a.postcode || "",
+      a.country || ""
+    ].filter(Boolean);
+
+    const addr = parts.join(", ") || (data.display_name || "");
+
+    document.getElementById('address').value = addr;
+
+    // IMPORTANT: store location + place in hidden fields too
+    setPoint(lat, lng, addr);
+
+    showMsg('Location selected (English address filled).', true);
+  }catch(e){
+    console.error(e);
+    showMsg('Could not fetch address. You can type it manually.', false);
+    // Still save lat/lng even if address lookup fails
+    setPoint(lat, lng, '');
+  }
+}
+
+async function useMyLocation(){
+  if(!navigator.geolocation){ showMsg('Geolocation not supported', false); return; }
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    const lt = pos.coords.latitude;
+    const ln = pos.coords.longitude;
+    setPoint(lt, ln, '');
+    await reverseGeocodeAndFill(lt, ln);
+  }, () => showMsg('Unable to get your location', false), {enableHighAccuracy:true, timeout: 10000});
+}
+
+  async function load(){
+    const res = await fetch('/api/profile');
+    const data = await res.json();
+    if(!res.ok){ showMsg(data.error || 'Failed to load', false); return; }
+    document.getElementById('address').value = data.profile.address || '';
+    document.getElementById('address_place').value = data.profile.address_place || '';
+    document.getElementById('address_lat').value = (data.profile.address_lat ?? '');
+    document.getElementById('address_lng').value = (data.profile.address_lng ?? '');
+    await initMap(data.profile);
+    document.getElementById('msg').style.display = 'none';
+  }
+
+  async function save(){
+    const address = document.getElementById('address').value.trim();
+    // Keep name/phone unchanged: fetch current profile first
+    const curRes = await fetch('/api/profile');
+    const cur = await curRes.json();
+    if(!curRes.ok){ showMsg(cur.error || 'Failed to load profile', false); return; }
+
+    const payload = {
+      name: cur.profile.name || 'Resident',
+      phone: cur.profile.phone || '',
+      address,
+      address_place: document.getElementById('address_place').value || '',
+      address_lat: document.getElementById('address_lat').value || null,
+      address_lng: document.getElementById('address_lng').value || null
+    };
+    const res = await fetch('/api/profile', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if(!res.ok){ showMsg(data.error || 'Save failed', false); return; }
+    showMsg('Address saved!');
+  }
+
+  load();
+</script>
+{% endblock %}

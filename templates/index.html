@@ -1,0 +1,1342 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Smart Waste System</title>
+  <link rel="stylesheet" href="/static/recycle.css">
+  <style>
+    /* ===== PHONE MOCKUP ===== */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: radial-gradient(circle at top, #2b2f4a, #0f1225);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .phone {
+      width: 390px;
+      height: 780px;
+      background: #000;
+      border-radius: 40px;
+      padding: 14px;
+      box-shadow:
+        0 30px 60px rgba(0,0,0,0.6),
+        inset 0 0 0 2px #333;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .phone-notch {
+      width: 140px;
+      height: 24px;
+      background: #000;
+      border-radius: 0 0 14px 14px;
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+    }
+
+    .container {
+      max-width: 100%;
+      margin: 0;
+      padding: 18px 14px;
+      height: 100%;
+      overflow-y: auto;
+      background: #f6f7fb;
+      border-radius: 28px;
+    }
+
+    .container::-webkit-scrollbar {
+      width: 0;
+    }
+
+    /* ===== YOUR EXISTING CSS ===== */
+    h1 { margin: 0 0 10px; text-align:center; font-size:20px; }
+    .panel { background: #fff; border-radius: 10px; padding: 16px; margin-top: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+    .hidden { display: none; }
+    label { display:block; margin-top: 10px; font-size: 14px; color: #333; }
+    input, select { width: 100%; padding: 10px; margin-top: 6px; border: 1px solid #ddd; border-radius: 8px; }
+    button { padding: 10px 14px; border: 0; border-radius: 8px; cursor:pointer; background: #2b6cff; color:#fff; }
+    button.secondary { background: #eef2ff; color:#2b2b2b; }
+    .row { display:flex; gap:10px; margin-top: 12px; align-items:center; }
+    .row.space { justify-content: space-between; }
+    .status { margin-top: 10px; padding: 10px; border-radius: 8px; }
+    .status.ok { background:#e7fff0; color:#105a2b; }
+    .status.err { background:#ffecec; color:#7a1212; }
+    .cards { display:flex; gap:12px; margin-top: 12px; flex-wrap: wrap; }
+    .card { flex: 1; min-width: 180px; background:#f6f7fb; border-radius: 10px; padding: 12px; }
+    .label { color:#666; font-size: 13px; }
+    .big { font-size: 28px; font-weight: 700; margin-top: 6px; }
+    .list { margin-top: 8px; }
+    .item { padding: 10px; border: 1px solid #eee; border-radius: 8px; margin-top: 8px; background:#fff; }
+    .dim { color:#777; font-size: 12px; }
+    .hint { margin-top: 12px; color:#666; font-size: 13px; }
+    .signup { margin-top: 12px; padding: 12px; border: 1px dashed #cbd5ff; border-radius: 10px; background: #fafbff; }
+
+    /* Hover effects */
+    button:hover { opacity: 0.9; }
+    .item:hover { background: #f0f1f5; }
+    @media(max-width:400px){
+      .phone { width: 100%; height: 100%; border-radius:0; padding:0; }
+      .container { border-radius:0; padding:10px; }
+    }
+  
+    /* ===== BOTTOM NAV + TABS ===== */
+    .tab-page{ display:none; }
+    .tab-page.active{ display:block; }
+
+    .bottom-nav{
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 64px;
+      display: flex;
+      gap: 8px;
+      padding: 10px 12px;
+      background: rgba(10, 12, 28, 0.92);
+      border-top: 1px solid rgba(255,255,255,0.08);
+      backdrop-filter: blur(8px);
+    }
+    .bottom-nav.hidden{ display:none; }
+
+    .bottom-nav .nav-item{
+      flex: 1;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.06);
+      color: #e7e9ff;
+      border-radius: 14px;
+      font-weight: 600;
+      padding: 10px 8px;
+      cursor: pointer;
+    }
+    .bottom-nav .nav-item.active{
+      background: rgba(255,255,255,0.14);
+      border-color: rgba(255,255,255,0.22);
+    }
+
+    /* prevent content being hidden behind the navbar */
+    .container{ padding-bottom: 84px; }
+
+</style>
+</head>
+
+<body>
+  <div class="phone">
+    <div class="phone-notch"></div>
+    <div class="container">
+      <img src="/static/image/logo.png" alt="Smart Waste Logo" class="app-logo">
+      <h1>Smart Waste Collection & Recycling</h1>
+
+      <div id="status" class="status"></div>
+
+      <!-- AUTH PANEL -->
+      <section id="panel-auth" class="panel">
+        <h2>Login</h2>
+        <label>Role</label>
+        <select id="role">
+          <option value="">Select Role</option>
+          <option value="resident">Resident</option>
+          <option value="collector">Waste Collector</option>
+          <option value="admin">Municipal Admin</option>
+        </select>
+
+        <label>Email</label>
+        <input id="loginEmail" placeholder="Email">
+        <label>Password</label>
+        <input id="loginPassword" type="password" placeholder="Password">
+
+        <div class="row">
+          <button onclick="doLogin()">Login</button>
+          <button class="secondary" onclick="toggleSignup(true)">Resident Sign Up</button>
+        </div>
+
+        <div id="signupBox" class="signup hidden">
+          <h3>Resident Sign Up</h3>
+          <label>Name</label>
+          <input id="signupName" placeholder="Your name">
+          <label>Email</label>
+          <input id="signupEmail" placeholder="Email">
+          <label>Password</label>
+          <input id="signupPassword" type="password" placeholder="Password">
+          <label>Zone</label>
+          <select id="signupZone"><option value="">Loading zones...</option></select>
+          <div class="row">
+            <button onclick="doSignup()">Create Account</button>
+            <button class="secondary" onclick="toggleSignup(false)">Cancel</button>
+          </div>
+        </div>
+
+        <div class="hint">
+          Demo resident: <b>alice@gmail.com</b> / <b>resident123</b>
+          Collector: <b>john.collector@mail.com</b> / <b>collector123</b><br>
+          Admin: <b>admin@municipal.gov</b> / <b>admin123</b>
+        </div>
+      </section>
+
+      <!-- TOP BAR -->
+      <section id="panel-topbar" class="panel hidden">
+        <div class="row space">
+          <div>
+            Logged in as: <b id="meName"></b> (<span id="meRole"></span>)
+          </div>
+        </div>
+      </section>
+
+      <!-- RESIDENT PANEL -->
+      <section id="panel-resident" class="panel hidden">
+        <h2>Resident Dashboard</h2>
+        <div class="tab-page active" data-tab="home">
+        <div class="cards">
+          <div class="card clickable" role="button" tabindex="0" onclick="openResidentRewardStore()" onkeydown="if(event.key==='Enter') openResidentRewardStore();">
+            <div class="label">Reward Points</div>
+            <div class="big" id="residentPoints">0</div>
+            <div class="dim">Tap to open Reward Store</div>
+          </div>
+          <div class="card">
+            <div class="label">Streak Days</div>
+            <div class="big" id="residentStreak">0</div>
+          </div>
+        </div>
+
+        <div class="row">
+          <button class="secondary" onclick="openResidentRewardStore()">Open Reward Store</button>
+          <button class="secondary" onclick="scrollToId('resident_submit')">Submit Recycling</button>
+          <button class="secondary" onclick="scrollToId('resident_schedule')">Pickup Schedule</button>
+        </div>
+        <h3 id="resident_submit">Submit Recycling Log</h3>
+        <label>Waste Type</label>
+        <select id="wasteType">
+          <option>Plastic</option>
+          <option>Paper</option>
+          <option>Glass</option>
+          <option>Metal</option>
+        </select>
+        <label>Weight (kg)</label>
+        <input id="wasteWeight" placeholder="e.g., 2.5">
+        <label>Upload Photo (optional)</label>
+        <input id="imageFile" type="file" accept="image/*">
+
+        <div class="row">
+          <button onclick="submitRecycling()">Submit</button>
+          <button class="secondary" onclick="loadResident()">Refresh</button>
+        </div>
+        <h3 id="resident_logs">Recent Recycling Logs (Latest 5)</h3>
+        <div id="recentLogs" class="list"></div>
+        <h3 id="resident_schedule">Pickup Schedule</h3>
+        <div class="row">
+          <button class="secondary" onclick="loadResidentSchedule()">Load Schedule</button>
+        </div>
+        <div id="residentSchedule" class="list"></div>
+      
+        </div>
+        <div class="tab-page" data-tab="notifications">
+<h3>Notifications</h3>
+        <div class="row">
+          <button class="secondary" onclick="loadNotifications()">Load Notifications</button>
+        </div>
+        <div id="notifications" class="list"></div>
+        
+        </div>
+        <div class="tab-page" data-tab="profile">
+<h3>Manage Profile</h3>
+        <div class="row">
+          <button class="secondary" onclick="loadResidentProfile()">Load Profile</button>
+        </div>
+        <label>Name</label>
+        <input id="profileName" placeholder="Your name">
+        <label>Phone</label>
+        <input id="profilePhone" placeholder="e.g. 012-3456789">
+        <label>Zone ID</label>
+        <input id="profileZone" placeholder="e.g. 1">
+        <div class="row">
+          <button onclick="saveResidentProfile()">Save Profile</button>
+        </div>
+
+        <h3>Logout</h3>
+        <div class="row">
+          <button class="danger" onclick="logout()">Logout</button>
+        </div>
+        
+        </div>
+      </section>
+
+      <!-- COLLECTOR PANEL -->
+      <section id="panel-collector" class="panel hidden">
+        <h2>Waste Collector Dashboard</h2>
+        <div class="tab-page active" data-tab="home">
+        <div class="cards">
+          <div class="card clickable" role="button" tabindex="0" onclick="scrollToId('collector_schedule')" onkeydown="if(event.key==='Enter') scrollToId('collector_schedule');">
+            <div class="label">Daily Schedule</div>
+            <div class="dim">Tap to view today's schedule</div>
+          </div>
+          <div class="card clickable" role="button" tabindex="0" onclick="scrollToId('collector_update')" onkeydown="if(event.key==='Enter') scrollToId('collector_update');">
+            <div class="label">Update Collection</div>
+            <div class="dim">Tap to update zone status</div>
+          </div>
+          <div class="card clickable" role="button" tabindex="0" onclick="scrollToId('collector_verify')" onkeydown="if(event.key==='Enter') scrollToId('collector_verify');">
+            <div class="label">Verify Rewards</div>
+            <div class="dim">Approve pending requests</div>
+          </div>
+          <div class="card clickable" role="button" tabindex="0" onclick="scrollToId('collector_routes')" onkeydown="if(event.key==='Enter') scrollToId('collector_routes');">
+            <div class="label">Routes</div>
+            <div class="dim">Tap to view routes</div>
+          </div>
+        </div>
+
+        <h3>Assigned Zones</h3>
+        <div id="collectorZones" class="list"></div>
+
+        <h3 id="collector_schedule">Daily Schedule</h3>
+        <div class="row">
+          <button onclick="loadCollectorDailySchedule()">View Daily Schedule</button>
+        </div>
+        <div id="collectorDailySchedule" class="list"></div>
+        <h3 id="collector_update">Update Collection Status</h3>
+        <label>Zone ID</label>
+        <input id="collectorZoneId" placeholder="e.g. 1">
+        <label>Status</label>
+        <select id="collectorStatus">
+          <option>Collected</option>
+          <option>Pending</option>
+          <option>Missed</option>
+        </select>
+        <div class="row">
+          <button onclick="submitCollectionStatus()">Update Status</button>
+        </div>
+        <h3 id="collector_verify">Verify Recycling Rewards</h3>
+        <div class="row">
+          <button class="secondary" onclick="loadCollectorPendingRewards()">Load Pending Requests</button>
+        </div>
+        <div id="collectorPendingRewards" class="list"></div>
+        <h3 id="collector_routes">Assigned Routes</h3>
+        <div class="row">
+          <button onclick="loadCollectorRoutes()">View Routes</button>
+        </div>
+        <div id="collectorRoutes" class="list"></div>
+      
+        </div>
+        <div class="tab-page" data-tab="notifications">
+<h3>Report Bin Issue</h3>
+        <label>Zone ID</label>
+        <input id="issueZoneId" placeholder="e.g. 1">
+        <label>Issue Type</label>
+        <select id="issueType">
+          <option>Overflow</option>
+          <option>Damaged</option>
+        </select>
+        <div class="row">
+          <button onclick="submitBinIssue()">Report Issue</button>
+        </div>
+
+        
+        </div>
+        <div class="tab-page" data-tab="profile">
+          <h3>Profile</h3>
+          <div class="hint">Logout is available here only.</div>
+          <div class="row">
+            <button class="danger" onclick="logout()">Logout</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ADMIN HOME -->
+      <section id="panel-admin" class="panel hidden">
+        <h2>Municipal Admin Dashboard</h2>
+        <div class="tab-page active" data-tab="home">
+<div class="cards">
+          <div class="card">
+            <div class="label">Total Recycling Logs</div>
+            <div class="big" id="adminLogs">0</div>
+          </div>
+          <div class="card">
+            <div class="label">Total Recycling Weight (kg)</div>
+            <div class="big" id="adminWeight">0</div>
+          </div>
+        </div>
+
+        <div class="cards">
+          <div class="card clickable" role="button" tabindex="0" onclick="scrollToId('admin_manage_zones')" onkeydown="if(event.key==='Enter') scrollToId('admin_manage_zones');">
+            <div class="label">Manage Zones</div>
+            <div class="dim">Zones, add zone, zone cards</div>
+          </div>
+          <div class="card clickable" role="button" tabindex="0" onclick="scrollToId('admin_schedules')" onkeydown="if(event.key==='Enter') scrollToId('admin_schedules');">
+            <div class="label">Pickup Schedules</div>
+            <div class="dim">View all schedules</div>
+          </div>
+          <div class="card clickable" role="button" tabindex="0" onclick="scrollToId('admin_approve_rewards')" onkeydown="if(event.key==='Enter') scrollToId('admin_approve_rewards');">
+            <div class="label">Approve Recycling Rewards</div>
+            <div class="dim">Pending approvals</div>
+          </div>
+          <div class="card clickable" role="button" tabindex="0" onclick="scrollToId('admin_redeem_management')" onkeydown="if(event.key==='Enter') scrollToId('admin_redeem_management');">
+            <div class="label">Redeem Management</div>
+            <div class="dim">Items + redemptions</div>
+          </div>
+        </div>
+
+        <!-- Manage Zones -->
+        <h3 id="admin_manage_zones">Manage Zones</h3>
+        <div class="row">
+          <button onclick="loadZones()">Refresh Zones</button>
+        </div>
+        <div id="adminZones" class="list"></div>
+
+        <h4>Add Zone</h4>
+        <label>Zone Name</label>
+        <input id="zoneAddName" placeholder="e.g. Zone C">
+        <label>Description</label>
+        <input id="zoneAddDesc" placeholder="e.g. New residential area">
+        <div class="row">
+          <button onclick="addZone()">Add Zone</button>
+        </div>
+
+        <h3 id="admin_schedules">Pickup Schedule Management</h3>
+        <div class="row">
+          <button onclick="loadAdminSchedules()">View All Schedules</button>
+        </div>
+        <div id="adminSchedules" class="list"></div>
+        <div class="hint">To add schedules, open a Zone and manage schedules inside the Zone page.</div>
+
+        <h3 id="admin_approve_rewards">Approve Recycling Rewards</h3>
+        <div class="row">
+          <button class="secondary" onclick="loadAdminPendingRewards()">Load Pending Approvals</button>
+        </div>
+        <div id="adminPendingRewards" class="list"></div>
+
+        <h3 id="admin_redeem_management">Reward Points Redeem Management</h3>
+        <div class="row">
+          <button class="secondary" onclick="loadAdminRewardItems()">Load Reward Items</button>
+          <button class="secondary" onclick="loadAdminRedemptions()">Load Redemptions</button>
+        </div>
+        <div id="adminRewardItems" class="list"></div>
+        <div id="adminRedemptions" class="list"></div>
+
+        <h4>Add / Update Reward Item</h4>
+        <label>Reward ID (leave blank to add)</label>
+        <input id="rewardItemId" placeholder="e.g. 1">
+        <label>Name</label>
+        <input id="rewardItemName" placeholder="e.g. Eco Tote Bag">
+        <label>Cost Points</label>
+        <input id="rewardItemCost" placeholder="e.g. 100">
+        <label>Description</label>
+        <input id="rewardItemDesc" placeholder="e.g. Reusable tote bag">
+        <label>Active? (1=active, 0=inactive)</label>
+        <input id="rewardItemActive" placeholder="1">
+        <div class="row">
+          <button onclick="saveAdminRewardItem()">Save Reward Item</button>
+          <button class="danger" onclick="deleteAdminRewardItem()">Deactivate Item</button>
+        </div>
+
+        <!-- System Settings -->
+
+        
+        </div>
+        <div class="tab-page" data-tab="notifications">
+<h3>Reported Bin Issues</h3>
+        <div class="row">
+          <button onclick="loadIssues()">View Issues</button>
+        </div>
+        <div id="adminIssues" class="list"></div>
+
+        <!-- Pickup Schedule Management -->
+        
+        </div>
+        <div class="tab-page" data-tab="profile">
+<h3>System Settings</h3>
+
+        <h4>Update Setting</h4>
+        <label>Key</label>
+        <input id="settingKey" placeholder="e.g. reward_rate">
+        <label>Value</label>
+        <input id="settingValue" placeholder="e.g. 10">
+        <div class="row">
+          <button onclick="saveAdminSetting()">Save Setting</button>
+        </div>
+
+        <h3>Logout</h3>
+        <div class="row">
+          <button class="danger" onclick="logout()">Logout</button>
+        </div>
+      
+        </div>
+      </section>
+
+
+      <!-- BOTTOM NAVIGATION -->
+      <nav id="bottom-nav" class="bottom-nav hidden" aria-label="Bottom navigation">
+        <button class="nav-item active" data-tab="home" onclick="setTab('home')">Home</button>
+        <button class="nav-item" data-tab="notifications" onclick="setTab('notifications')">Notifications</button>
+        <button class="nav-item" data-tab="profile" onclick="setTab('profile')">Profile</button>
+      </nav>
+
+<script>
+  const statusBox = document.getElementById("status");
+
+  // ---------------- CARD NAV HELPERS ----------------
+  function scrollToId(id){
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function openResidentRewardStore(){
+    window.location.href = '/resident/rewards';
+  }
+
+    async function refreshCurrentRole(){
+    const role = (document.getElementById("meRole")?.innerText || "").trim();
+
+    if(role === "resident"){
+      await loadResident();
+      await loadNotifications();
+      await loadResidentSchedule();
+    } else if(role === "collector"){
+      await loadCollector(); // loads zones, routes, daily schedule
+    } else if(role === "admin"){
+      await loadAdmin(); // loads summary, zones, schedules
+      await loadIssues();
+    }
+  }
+
+  function setStatus(msg, ok=true){
+    statusBox.innerText = msg || "";
+    statusBox.className = ok ? "status ok" : "status err";
+    if(!msg) statusBox.className = "status";
+  }
+
+  function showPanel(id){
+    // hide all main panels EXCEPT topbar (topbar is controlled separately)
+    const panels = ["panel-auth","panel-resident","panel-collector","panel-admin"];
+    for(const p of panels){
+      document.getElementById(p).classList.add("hidden");
+    }
+    document.getElementById(id).classList.remove("hidden");
+  }
+
+
+  
+  // ---------------- BOTTOM NAV / TAB HANDLING ----------------
+  let currentTab = "home";
+
+  function setTab(tab){
+    currentTab = tab;
+
+    // update button active state
+    const nav = document.getElementById("bottom-nav");
+    if(nav){
+      nav.querySelectorAll(".nav-item").forEach(btn=>{
+        btn.classList.toggle("active", btn.getAttribute("data-tab") === tab);
+      });
+    }
+
+    // show tab-page inside the currently visible role panel
+    const role = (document.getElementById("meRole")?.innerText || "").trim();
+    const panelId = role ? `panel-${role}` : "";
+    const panel = panelId ? document.getElementById(panelId) : null;
+
+    if(!panel) return;
+
+    panel.querySelectorAll(".tab-page").forEach(page=>{
+      page.classList.toggle("active", page.getAttribute("data-tab") === tab);
+    });
+  }
+
+function toggleSignup(show){
+    document.getElementById("signupBox").classList.toggle("hidden", !show);
+    if(show){ loadSignupZones(); }
+  }
+
+  // ---------------- AUTH ----------------
+  async function loadSignupZones(){
+    const sel = document.getElementById("signupZone");
+    if(!sel) return;
+    try{
+      const res = await fetch("/api/zones");
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error || "Failed to load zones");
+      const zones = data.zones || [];
+      if(!zones.length){
+        sel.innerHTML = '<option value="">No zones</option>';
+        return;
+      }
+      sel.innerHTML = '<option value="">Select Zone</option>' + zones.map(z => ` <option value="${z.zone_id}">${z.name} (ID: ${z.zone_id})</option>`).join("");
+    }catch(e){
+      sel.innerHTML = '<option value="">Failed to load zones</option>';
+    }
+  }
+
+
+
+  async function doSignup(){
+    setStatus("");
+    const name = document.getElementById("signupName").value.trim();
+    const email = document.getElementById("signupEmail").value.trim();
+    const password = document.getElementById("signupPassword").value;
+    const zone_id = (document.getElementById("signupZone")?.value || "").trim();
+
+    const res = await fetch("/api/register", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ name, email, password, zone_id })
+    });
+
+    const data = await res.json();
+    if(!res.ok) return setStatus(data.error || "Signup failed", false);
+
+    setStatus("Account created. Please login.");
+    toggleSignup(false);
+  }
+
+  async function doLogin(){
+    setStatus("");
+    const role = document.getElementById("role").value;
+    const email = document.getElementById("loginEmail").value.trim();
+    const password = document.getElementById("loginPassword").value;
+
+    const res = await fetch("/api/login", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ role, email, password })
+    });
+
+    const data = await res.json();
+    if(!res.ok) return setStatus(data.error || "Login failed", false);
+
+    // NEW: role-based page navigation (phone-app style)
+    window.location.href = `/${data.role}/home`;
+  }
+
+  async function logout(){
+    await fetch("/api/logout", { method:"POST" });
+    setStatus("Logged out.");
+    document.getElementById("panel-topbar").classList.add("hidden");
+    document.getElementById("bottom-nav").classList.add("hidden");
+    showPanel("panel-auth");
+  }
+
+  // If already logged in, jump straight into the correct home page.
+  (async function(){
+    try{
+      const res = await fetch('/api/me');
+      const me = await res.json();
+      if(me && me.logged_in && me.role){
+        window.location.href = `/${me.role}/home`;
+      }
+    }catch(e){ /* ignore */ }
+  })();
+
+  // ---------------- RESIDENT ----------------
+  async function loadResident(){
+    const res = await fetch("/api/resident/summary");
+    const data = await res.json();
+    if(!res.ok) return setStatus(data.error || "Failed to load resident", false);
+
+    document.getElementById("residentPoints").innerText = data.points;
+    document.getElementById("residentStreak").innerText = data.streak_days;
+
+    const logs = document.getElementById("recentLogs");
+    logs.innerHTML = "";
+    if(!data.recent_logs.length){
+      logs.innerHTML = "<div class='item'>No logs yet.</div>";
+    } else {
+      for(const row of data.recent_logs){
+        const status = row.status ? ` • <b>${row.status}</b>` : "";
+        const pts = (row.points_earned !== undefined && row.points_earned !== null) ? ` • ${row.points_earned} pts` : "";
+        logs.innerHTML += `<div class="item">#${row.log_id} — ${row.waste_type}, ${row.weight}kg${pts}${status} <span class="dim">(${row.created_at})</span></div>`;
+      }
+    }
+    setStatus("");
+  }
+
+  // ---------------- RESIDENT REWARD STORE (REDEEM) ----------------
+  async function loadRewardStore(){
+    setStatus("");
+    const res = await fetch("/api/resident/rewards/store");
+    const data = await res.json();
+    if(!res.ok) return setStatus(data.error || "Failed to load reward store", false);
+
+    const box = document.getElementById("rewardStore");
+    box.innerHTML = "";
+
+    const items = data.items || [];
+    if(!items.length){
+      box.innerHTML = "<div class='item'>No rewards available.</div>";
+      return;
+    }
+
+    for(const it of items){
+      const canRedeem = (data.points >= it.cost_points);
+      const btn = canRedeem
+        ? `<button onclick=\"redeemReward(${it.reward_id})\">Redeem (${it.cost_points} pts)</button>`
+        : `<button class=\"secondary\" disabled title=\"Not enough points\">Need ${it.cost_points} pts</button>`;
+      const desc = it.description ? `<div class='dim'>${it.description}</div>` : "";
+      box.innerHTML += `
+        <div class="item">
+          <div><b>${it.name}</b></div>
+          ${desc}
+          <div class="row space" style="margin-top:10px;">
+            <div class="dim">Cost: ${it.cost_points} points</div>
+            ${btn}
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  async function redeemReward(reward_id){
+    if(!confirm("Redeem this reward? Points will be deducted immediately.")) return;
+
+    setStatus("");
+    const res = await fetch("/api/resident/rewards/redeem", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reward_id })
+    });
+    const data = await res.json();
+    if(!res.ok) return setStatus(data.error || "Redeem failed", false);
+
+    setStatus("Redeemed successfully!", true);
+    // refresh points + store button states
+    await loadResident();
+    await loadRewardStore();
+    await loadRedemptions();
+  }
+
+  async function loadRedemptions(){
+    setStatus("");
+    const res = await fetch("/api/resident/rewards/redemptions");
+    const data = await res.json();
+    if(!res.ok) return setStatus(data.error || "Failed to load redemptions", false);
+
+    const box = document.getElementById("rewardRedemptions");
+    box.innerHTML = "";
+    const rows = data.redemptions || [];
+    if(!rows.length){
+      box.innerHTML = "<div class='item'>No redemptions yet.</div>";
+      return;
+    }
+    for(const r of rows){
+      box.innerHTML += `<div class="item">#${r.redemption_id} — <b>${r.reward_name}</b> • -${r.points_spent} pts • <b>${r.status}</b> <span class="dim">(${r.redeemed_at})</span></div>`;
+    }
+  }
+
+  async function submitRecycling(){
+    setStatus("");
+
+    const waste_type = document.getElementById("wasteType").value;
+    const weight = document.getElementById("wasteWeight").value;
+
+    const fileInput = document.getElementById("imageFile");
+    const file = fileInput && fileInput.files ? fileInput.files[0] : null;
+
+    // Use multipart/form-data so users can upload an image from their computer
+    const formData = new FormData();
+    formData.append("waste_type", waste_type);
+    formData.append("weight", weight);
+    if (file) formData.append("image", file);
+
+    const res = await fetch("/api/resident/recycling_log", {
+      method: "POST",
+      body: formData
+    });
+
+    const data = await res.json();
+    if(!res.ok) return setStatus(data.error || "Submit failed", false);
+
+    setStatus(`Submitted! Pending verification (+${data.points_earned} est points).`);
+    document.getElementById("wasteWeight").value = "";
+    if (fileInput) fileInput.value = "";
+    await refreshCurrentRole(); // or loadResident()
+  }
+
+
+  async function loadNotifications(){
+    const res = await fetch("/api/resident/notifications");
+    const data = await res.json();
+    if(!res.ok) return setStatus(data.error || "Failed to load notifications", false);
+
+    const box = document.getElementById("notifications");
+    box.innerHTML = "";
+    if(!data.notifications.length){
+      box.innerHTML = "<div class='item'>No notifications.</div>";
+    } else {
+      for(const n of data.notifications){
+        box.innerHTML += `<div class="item">${n.message} <span class="dim">(${n.created_at})</span></div>`;
+      }
+    }
+  }
+
+  async function loadResidentSchedule(){
+    const res = await fetch("/api/resident/schedule");
+    const data = await res.json();
+
+    const box = document.getElementById("residentSchedule");
+    box.innerHTML = "";
+
+    if(!res.ok){
+      box.innerHTML = "<div class='item'>Failed to load schedule.</div>";
+      return;
+    }
+
+    if(data.schedule.length === 0){
+      box.innerHTML = "<div class='item'>No schedule found.</div>";
+      return;
+    }
+
+    data.schedule.forEach(s=>{
+      box.innerHTML += `<div class="item">${s.zone_name}: ${s.day} at ${s.time}</div>`;
+    });
+  }
+
+  // Profile (required by your subsystem list)
+  async function loadResidentProfile(){
+    const res = await fetch("/api/resident/profile");
+    const data = await res.json();
+    if(!res.ok) return setStatus(data.error || "Failed to load profile", false);
+
+    const p = data.profile;
+    document.getElementById("profileName").value = p.name || "";
+    document.getElementById("profilePhone").value = p.phone || "";
+    document.getElementById("profileZone").value = p.zone_id || 1;
+    setStatus("Profile loaded.");
+  }
+
+  async function saveResidentProfile(){
+    const name = document.getElementById("profileName").value.trim();
+    const phone = document.getElementById("profilePhone").value.trim();
+    const zone_id = document.getElementById("profileZone").value;
+
+    const res = await fetch("/api/resident/profile",{
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ name, phone, zone_id })
+    });
+    const data = await res.json();
+    if(!res.ok) return setStatus(data.error || "Failed to save profile", false);
+
+    setStatus("Profile updated!");
+    document.getElementById("meName").innerText = name; // update top bar
+    await refreshCurrentRole();
+
+  }
+
+  // ---------------- COLLECTOR ----------------
+  async function loadCollector(){
+    await loadCollectorZones();
+    await loadCollectorRoutes();
+    await loadCollectorDailySchedule();
+  }
+
+  async function loadCollectorZones(){
+    const res = await fetch("/api/collector/zones");
+    const data = await res.json();
+
+    const box = document.getElementById("collectorZones");
+    box.innerHTML = "";
+
+    if(!res.ok || data.zones.length === 0){
+      box.innerHTML = "<div class='item'>No zones assigned.</div>";
+      return;
+    }
+
+    data.zones.forEach(z=>{
+      box.innerHTML += `<div class="item">Zone ${z.zone_id}: ${z.name}</div>`;
+    });
+  }
+
+  async function loadCollectorRoutes(){
+    const res = await fetch("/api/collector/routes");
+    const data = await res.json();
+
+    const box = document.getElementById("collectorRoutes");
+    box.innerHTML = "";
+
+    if(!res.ok){
+      box.innerHTML = "<div class='item'>Failed to load routes.</div>";
+      return;
+    }
+
+    if(data.routes.length === 0){
+      box.innerHTML = "<div class='item'>No routes assigned.</div>";
+      return;
+    }
+
+    data.routes.forEach(r=>{
+      box.innerHTML += `<div class="item">Date: ${r.route_date} | Path: ${r.optimized_path}</div>`;
+    });
+  }
+
+  async function loadCollectorDailySchedule(){
+    const res = await fetch("/api/collector/daily_schedule");
+    const data = await res.json();
+
+    const box = document.getElementById("collectorDailySchedule");
+    if(!box) return; // if you haven't added the HTML block yet
+
+    box.innerHTML = "";
+
+    if(!res.ok){
+      box.innerHTML = "<div class='item'>Failed to load daily schedule.</div>";
+      return;
+    }
+
+    if(data.schedule.length === 0){
+      box.innerHTML = "<div class='item'>No daily schedule.</div>";
+      return;
+    }
+
+    data.schedule.forEach(s=>{
+      box.innerHTML += `<div class="item">${s.zone_name}: ${s.day} ${s.time}</div>`;
+    });
+  }
+
+  async function submitCollectionStatus(){
+    const zone_id = document.getElementById("collectorZoneId").value.trim();
+    const status = document.getElementById("collectorStatus").value;
+
+    const res = await fetch("/api/collector/status",{
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body:JSON.stringify({ zone_id, status })
+    });
+    const data = await res.json();
+
+    alert(res.ok ? "Status updated successfully." : (data.error || "Error updating status."));
+    await refreshCurrentRole();
+  }
+
+  async function submitBinIssue(){
+    const zone_id = document.getElementById("issueZoneId").value.trim();
+    const issue_type = document.getElementById("issueType").value;
+
+    const res = await fetch("/api/collector/issue",{
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body:JSON.stringify({ zone_id, issue_type })
+    });
+    const data = await res.json();
+
+    alert(res.ok ? "Issue reported successfully." : (data.error || "Error reporting issue."));
+    await refreshCurrentRole();
+
+  }
+
+  async function loadCollectorPendingRewards(){
+    const res = await fetch("/api/collector/rewards/pending");
+    const data = await res.json();
+    const box = document.getElementById("collectorPendingRewards");
+    if(!box) return;
+    box.innerHTML = "";
+    if(!res.ok){
+      box.innerHTML = `<div class='item'>${data.error || "Failed to load pending requests."}</div>`;
+      return;
+    }
+    if(!data.requests.length){
+      box.innerHTML = "<div class='item'>No pending reward requests.</div>";
+      return;
+    }
+    for(const r of data.requests){
+      const img = r.image_url ? `<a href="/static/${r.image_url}" target="_blank">proof</a>` : "no proof";
+      box.innerHTML += `
+        <div class="item">
+          #${r.log_id} — ${r.resident_name} (${r.zone_name}) • ${r.waste_type}, ${r.weight}kg • ${r.points_earned} pts • ${img}
+          <div class="row" style="margin-top:8px;">
+            <button onclick="collectorDecideReward(${r.log_id}, 'verify')">Verify</button>
+            <button class="secondary" onclick="collectorDecideReward(${r.log_id}, 'reject')">Reject</button>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  async function collectorDecideReward(log_id, action){
+    let reason = "";
+    if(action === 'reject'){
+      reason = prompt("Reason for rejection (optional):") || "";
+    }
+    const res = await fetch(`/api/collector/rewards/${log_id}/verify`,{
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body:JSON.stringify({ action, reason })
+    });
+    const data = await res.json();
+    if(!res.ok){
+      alert(data.error || "Action failed.");
+      return;
+    }
+    await loadCollectorPendingRewards();
+    alert(action === 'verify' ? "Verified. Sent to admin for approval." : "Rejected.");
+  }
+
+  // ---------------- ADMIN ----------------
+  async function loadAdmin(){
+    await loadAdminSummary();
+    await loadZones();
+    await loadAdminSchedules();
+  }
+
+  async function loadAdminPendingRewards(){
+    const res = await fetch("/api/admin/rewards/pending");
+    const data = await res.json();
+    const box = document.getElementById("adminPendingRewards");
+    if(!box) return;
+    box.innerHTML = "";
+    if(!res.ok){
+      box.innerHTML = `<div class='item'>${data.error || "Failed to load pending approvals."}</div>`;
+      return;
+    }
+    if(!data.requests.length){
+      box.innerHTML = "<div class='item'>No pending approvals.</div>";
+      return;
+    }
+    for(const r of data.requests){
+      const img = r.image_url ? `<a href="/static/${r.image_url}" target="_blank">proof</a>` : "no proof";
+      const verified = r.verified_by_name ? `Verified by: ${r.verified_by_name}` : "Verified";
+      box.innerHTML += `
+        <div class="item">
+          #${r.log_id} — ${r.resident_name} (${r.zone_name}) • ${r.waste_type}, ${r.weight}kg • ${r.points_earned} pts • ${img}
+          <div class="dim" style="margin-top:4px;">${verified} • ${r.verified_at || ""}</div>
+          <div class="row" style="margin-top:8px;">
+            <button onclick="adminDecideReward(${r.log_id}, 'approve')">Approve</button>
+            <button class="secondary" onclick="adminDecideReward(${r.log_id}, 'reject')">Reject</button>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  async function adminDecideReward(log_id, action){
+    let reason = "";
+    if(action === 'reject'){
+      reason = prompt("Reason for rejection (optional):") || "";
+    }
+    const res = await fetch(`/api/admin/rewards/${log_id}/decision`,{
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body:JSON.stringify({ action, reason })
+    });
+    const data = await res.json();
+    if(!res.ok){
+      alert(data.error || "Action failed.");
+      return;
+    }
+    await loadAdminPendingRewards();
+    await loadAdminSummary();
+    alert(action === 'approve' ? "Approved and points awarded." : "Rejected.");
+  }
+
+  async function loadAdminSummary(){
+    const res = await fetch("/api/admin/summary");
+    const data = await res.json();
+    if(!res.ok) return setStatus("Failed to load admin dashboard", false);
+
+    document.getElementById("adminLogs").innerText = data.total_logs;
+    document.getElementById("adminWeight").innerText = Number(data.total_weight).toFixed(2);
+  }
+
+  async function loadZones(){
+    const res = await fetch("/api/admin/zones");
+    const data = await res.json();
+
+    const box = document.getElementById("adminZones");
+    box.innerHTML = "";
+
+    if(!res.ok){
+      box.innerHTML = "<div class='item'>Error loading zones</div>";
+      return;
+    }
+
+    data.zones.forEach(z=>{
+      box.innerHTML += `
+        <div class="item clickable" role="button" tabindex="0"
+             onclick="window.location.href='/admin/zones/${z.zone_id}'"
+             onkeydown="if(event.key==='Enter'||event.key===' '){window.location.href='/admin/zones/${z.zone_id}'}">
+          <b>Zone ${z.zone_id}: ${z.name}</b>
+          <div class="dim">${z.description || ''}</div>
+          <div class="dim">Tap to manage (Edit / Delete / Assign Collector / Schedules)</div>
+        </div>`;
+    });
+  }
+
+
+  // ---------------- Admin: Reward store items CRUD ----------------
+  async function loadAdminRewardItems(){
+    const res = await fetch("/api/admin/reward_items");
+    const data = await res.json();
+
+    const box = document.getElementById("adminRewardItems");
+    box.innerHTML = "";
+
+    if(!res.ok){
+      box.innerHTML = `<div class="item">${data.error || 'Error loading reward items'}</div>`;
+      return;
+    }
+
+    if((data.items || []).length === 0){
+      box.innerHTML = "<div class='item'>No reward items found.</div>";
+      return;
+    }
+
+    data.items.forEach(it=>{
+      box.innerHTML += `
+        <div class="item">
+          <b>ID ${it.reward_id}: ${it.name}</b>
+          <div class="dim">Cost: ${it.cost_points} pts | Active: ${it.is_active}</div>
+          <div class="dim">${it.description || ''}</div>
+          <div class="row">
+            <button class="secondary" onclick="fillRewardItemForm(${it.reward_id}, '${(it.name||'').replace(/'/g,"&#39;")}', ${it.cost_points}, '${(it.description||'').replace(/'/g,"&#39;")}', ${it.is_active})">Edit</button>
+          </div>
+        </div>`;
+    });
+  }
+
+  function fillRewardItemForm(id, name, cost, desc, active){
+    document.getElementById("rewardItemId").value = id;
+    document.getElementById("rewardItemName").value = name;
+    document.getElementById("rewardItemCost").value = cost;
+    document.getElementById("rewardItemDesc").value = desc;
+    document.getElementById("rewardItemActive").value = active;
+  }
+
+  async function saveAdminRewardItem(){
+    const reward_id = document.getElementById("rewardItemId").value.trim();
+    const name = document.getElementById("rewardItemName").value.trim();
+    const cost_points = document.getElementById("rewardItemCost").value.trim();
+    const description = document.getElementById("rewardItemDesc").value.trim();
+    const is_active = document.getElementById("rewardItemActive").value.trim() || "1";
+
+    const payload = { name, cost_points, description, is_active };
+    const url = reward_id ? `/api/admin/reward_items/${reward_id}` : "/api/admin/reward_items";
+    const method = reward_id ? "PUT" : "POST";
+
+    const res = await fetch(url,{
+      method,
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    alert(res.ok ? "Reward item saved!" : (data.error || "Save failed"));
+
+    if(res.ok){
+      document.getElementById("rewardItemId").value = "";
+      await loadAdminRewardItems();
+    }
+  }
+
+  async function deleteAdminRewardItem(){
+    const reward_id = document.getElementById("rewardItemId").value.trim();
+    if(!reward_id) return alert("Enter Reward ID to deactivate.");
+    if(!confirm("Deactivate this reward item?")) return;
+
+    const res = await fetch(`/api/admin/reward_items/${reward_id}`,{ method:"DELETE" });
+    const data = await res.json();
+    alert(res.ok ? "Item deactivated." : (data.error || "Deactivate failed"));
+    if(res.ok){
+      await loadAdminRewardItems();
+    }
+  }
+
+
+  // ---------------- Admin: Redemptions status (Processing -> Claimed) ----------------
+  async function loadAdminRedemptions(){
+    const res = await fetch("/api/admin/redemptions");
+    const data = await res.json();
+
+    const box = document.getElementById("adminRedemptions");
+    box.innerHTML = "";
+
+    if(!res.ok){
+      box.innerHTML = `<div class="item">${data.error || 'Error loading redemptions'}</div>`;
+      return;
+    }
+
+    if((data.redemptions || []).length === 0){
+      box.innerHTML = "<div class='item'>No redemptions yet.</div>";
+      return;
+    }
+
+    data.redemptions.forEach(r=>{
+      const canClaim = (r.status || "").toLowerCase() !== "claimed";
+      box.innerHTML += `
+        <div class="item">
+          <b>#${r.redemption_id} - ${r.reward_name}</b>
+          <div class="dim">Resident: ${r.resident_name} (ID ${r.resident_id})</div>
+          <div class="dim">Spent: ${r.points_spent} pts | Status: <b>${r.status}</b></div>
+          <div class="dim">${r.redeemed_at}</div>
+          <div class="row">
+            ${canClaim ? `<button onclick="claimRedemption(${r.redemption_id})">Mark Claimed</button>` : `<button class="secondary" disabled>Claimed</button>`}
+          </div>
+        </div>`;
+    });
+  }
+
+  async function claimRedemption(redemption_id){
+    const res = await fetch(`/api/admin/redemptions/${redemption_id}/claim`,{ method:"POST" });
+    const data = await res.json();
+    alert(res.ok ? "Marked as Claimed." : (data.error || "Claim failed"));
+    if(res.ok) await loadAdminRedemptions();
+  }
+
+
+  async function loadIssues(){
+    const res = await fetch("/api/admin/issues");
+    const data = await res.json();
+
+    const box = document.getElementById("adminIssues");
+    box.innerHTML = "";
+
+    if(!res.ok){
+      box.innerHTML = "<div class='item'>Error loading issues</div>";
+      return;
+    }
+
+    if(data.issues.length === 0){
+      box.innerHTML = "<div class='item'>No reported issues.</div>";
+      return;
+    }
+
+    data.issues.forEach(i=>{
+      box.innerHTML += `
+        <div class="item">
+          Collector: ${i.collector} |
+          Zone: ${i.zone} |
+          Issue: ${i.issue_type}
+          <span class="dim">(${i.created_at})</span>
+        </div>`;
+    });
+  }
+
+  async function loadAdminSchedules(){
+    const res = await fetch("/api/admin/schedules");
+    const data = await res.json();
+
+    const box = document.getElementById("adminSchedules");
+    box.innerHTML = "";
+
+    if(!res.ok){
+      box.innerHTML = "<div class='item'>Failed to load schedules.</div>";
+      return;
+    }
+
+    if(data.schedules.length === 0){
+      box.innerHTML = "<div class='item'>No schedules found.</div>";
+      return;
+    }
+
+    data.schedules.forEach(s=>{
+      box.innerHTML += `<div class="item">#${s.schedule_id} | ${s.zone_name} | ${s.day} ${s.time}</div>`;
+    });
+  }
+
+  async function addAdminSchedule(){
+    const zone_id = document.getElementById("adminScheduleZone").value.trim();
+    const day = document.getElementById("adminScheduleDay").value.trim();
+    const time = document.getElementById("adminScheduleTime").value.trim();
+
+    const res = await fetch("/api/admin/schedules",{
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ zone_id, day, time })
+    });
+
+    const data = await res.json();
+    if(!res.ok) return alert(data.error || "Failed");
+
+    alert("Schedule added!");
+    loadAdminSchedules();
+    await refreshCurrentRole();
+
+  }
+  function startCollectorAutoRefresh(){
+    setInterval(async () => {
+      const role = (document.getElementById("meRole")?.innerText || "").trim();
+      if(role === "collector"){
+        await loadCollectorRoutes();
+        await loadCollectorZones();
+        await loadCollectorDailySchedule();
+      }
+    }, 5000); // refresh every 5 seconds
+  }
+
+  // Admin Settings (required: manage system settings)
+
+  async function saveAdminSetting(){
+    const key = document.getElementById("settingKey").value.trim();
+    const value = document.getElementById("settingValue").value.trim();
+
+    const res = await fetch("/api/admin/settings",{
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ key, value })
+    });
+
+    const data = await res.json();
+    alert(res.ok ? "Setting saved!" : (data.error || "Failed to save setting"));
+
+  }
+
+  async function addZone(){
+  const name = document.getElementById("zoneAddName").value.trim();
+  const description = document.getElementById("zoneAddDesc").value.trim();
+
+  const res = await fetch("/api/admin/zones",{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({ name, description })
+  });
+
+  const data = await res.json();
+  if(!res.ok) return alert(data.error || "Add zone failed");
+
+  alert("Zone added!");
+  document.getElementById("zoneAddName").value = "";
+  document.getElementById("zoneAddDesc").value = "";
+  loadZones();
+  }
+
+  // ---------------- AUTO RESUME ----------------
+  (async function(){
+    const res = await fetch("/api/me");
+    const data = await res.json();
+
+    if(!data.logged_in){
+      showPanel("panel-auth");
+      return;
+    }
+
+    document.getElementById("meName").innerText = data.name;
+    document.getElementById("meRole").innerText = data.role;
+    document.getElementById("panel-topbar").classList.remove("hidden");
+    document.getElementById("bottom-nav").classList.remove("hidden");
+    setTab("home");
+
+    if(data.role === "resident"){
+      await loadResident();
+      showPanel("panel-resident");
+    } else if(data.role === "collector"){
+      await loadCollector();
+      showPanel("panel-collector");
+    } else {
+      await loadAdmin();
+      showPanel("panel-admin");
+    }
+  })();
+
+  setInterval(async () => {
+  const topbarHidden = document.getElementById("panel-topbar").classList.contains("hidden");
+  if(!topbarHidden){
+    await refreshCurrentRole();
+  }
+  }, 10000);
+  startCollectorAutoRefresh();
+
+</script>
+
+</body>
+</html>

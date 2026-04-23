@@ -1,0 +1,46 @@
+{% extends "base_phone.html" %}
+{% set title = "Update Status" %}
+
+{% block content %}
+<div class="topbar">
+  <button class="back" onclick="window.location.href='/collector/home'">⬅ Back</button>
+  <div style="font-weight:700">Update Status</div>
+  <div></div>
+</div>
+
+<h1>Update Status</h1>
+
+<div id="msg" class="status" style="display:none"></div>
+
+<div class="panel">
+  <label>Status</label>
+  <select id="status">
+    <option value="Available">Available</option>
+    <option value="OnRoute">On Route</option>
+    <option value="Busy">Busy</option>
+    <option value="Offline">Offline</option>
+  </select>
+  <div class="row">
+    <button onclick="save()">Save</button>
+  </div>
+</div>
+
+<script>
+  function showMsg(t, ok=true){
+    const m = document.getElementById('msg');
+    m.style.display='block';
+    m.className='status ' + (ok ? 'ok' : 'err');
+    m.innerText=t;
+  }
+  async function save(){
+    const status = document.getElementById('status').value;
+    const res = await fetch('/api/collector/status', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ status })
+    });
+    const data = await res.json();
+    if(!res.ok){ showMsg(data.error || 'Failed', false); return; }
+    showMsg('Updated!');
+  }
+</script>
+{% endblock %}

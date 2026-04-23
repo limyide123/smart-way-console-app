@@ -1,0 +1,51 @@
+{% extends "base_phone.html" %}
+{% set title = "Report Issue" %}
+
+{% block content %}
+<div class="topbar">
+  <button class="back" onclick="window.location.href='/collector/home'">⬅ Back</button>
+  <div style="font-weight:700">Report Issue</div>
+  <div></div>
+</div>
+
+<h1>Report Bin Issue</h1>
+
+<div id="msg" class="status" style="display:none"></div>
+
+<div class="panel">
+  <label>Zone ID</label>
+  <input id="zoneId" type="number" placeholder="e.g. 1" />
+  <label>Issue Type</label>
+  <select id="issueType">
+    <option value="Overflow">Overflow</option>
+    <option value="Damaged">Damaged</option>
+    <option value="Blocked">Blocked</option>
+    <option value="Other">Other</option>
+  </select>
+  <div class="row">
+    <button onclick="submitIssue()">Submit</button>
+  </div>
+</div>
+
+<script>
+  function showMsg(t, ok=true){
+    const m = document.getElementById('msg');
+    m.style.display='block';
+    m.className='status ' + (ok ? 'ok' : 'err');
+    m.innerText=t;
+  }
+  async function submitIssue(){
+    const zone_id = parseInt(document.getElementById('zoneId').value || '0');
+    const issue_type = document.getElementById('issueType').value;
+    if(!zone_id){ showMsg('Zone ID is required', false); return; }
+    const res = await fetch('/api/collector/issue', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ zone_id, issue_type })
+    });
+    const data = await res.json();
+    if(!res.ok){ showMsg(data.error || 'Failed', false); return; }
+    showMsg('Submitted!');
+    document.getElementById('zoneId').value='';
+  }
+</script>
+{% endblock %}

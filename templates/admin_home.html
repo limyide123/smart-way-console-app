@@ -1,0 +1,95 @@
+{% extends "base_phone.html" %}
+{% set title = "Admin Dashboard" %}
+
+{% block content %}
+<div class="topbar">
+  <div></div>
+  <div></div>
+  <button class="secondary" onclick="window.location.href='/admin/profile'">Profile</button>
+</div>
+
+<h1>Admin Dashboard</h1>
+
+<div class="panel">
+  <div class="row space">
+    <div>
+      <div class="label">Welcome</div>
+      <div style="font-weight:700" id="meName">...</div>
+    </div>
+    <div style="text-align:right">
+      <div class="label">Total Recycling Logs</div>
+      <div style="font-weight:700" id="totalLogs">0</div>
+    </div>
+  </div>
+  <div class="hint">Tap a card to open a feature page.</div>
+</div>
+
+<!-- Totals (Residents / Collectors) -->
+<div class="card-grid">
+  <div class="nav-card" onclick="window.location.href='/admin/residents'">
+    <div class="nav-title">Residents</div>
+    <div class="nav-sub">Total: <b id="residentCount">0</b> (tap to view)</div>
+  </div>
+  <div class="nav-card" onclick="window.location.href='/admin/collectors'">
+    <div class="nav-title">Collectors</div>
+    <div class="nav-sub">Total: <b id="collectorCount">0</b> (tap to view)</div>
+  </div>
+</div>
+
+<!-- Main navigation flow -->
+<div class="card-grid" style="margin-top:12px">
+  <div class="nav-card" onclick="window.location.href='/admin/zones'">
+    <div class="nav-title">Manage Zones</div>
+    <div class="nav-sub">Zones + Assign collector + Schedule</div>
+  </div>
+  <div class="nav-card" onclick="window.location.href='/admin/assign'">
+    <div class="nav-title">Assign Collector</div>
+    <div class="nav-sub">Resident submissions → assign a collector</div>
+  </div>
+  <div class="nav-card" onclick="window.location.href='/admin/approvals'">
+    <div class="nav-title">Approve Recycling Rewards</div>
+    <div class="nav-sub">Load pending approvals</div>
+  </div>
+  <div class="nav-card" onclick="window.location.href='/admin/redeems'">
+    <div class="nav-title">Reward Points Redeem</div>
+    <div class="nav-sub">Items + redemptions + claim</div>
+  </div>
+  <div class="nav-card" onclick="window.location.href='/admin/schedules'">
+    <div class="nav-title">Pickup Schedules</div>
+    <div class="nav-sub">View all schedules</div>
+  </div>
+  <div class="nav-card" onclick="window.location.href='/admin/notify'">
+    <div class="nav-title">Send Notification</div>
+    <div class="nav-sub">Broadcast announcements</div>
+  </div>
+  <div class="nav-card" onclick="window.location.href='/admin/settings'">
+    <div class="nav-title">System Settings</div>
+    <div class="nav-sub">reward_rate + pickup reminders</div>
+  </div>
+</div>
+
+<div class="panel" id="msg" style="display:none"></div>
+
+<script>
+  async function load(){
+    try{
+      const meRes = await fetch('/api/me');
+      const me = await meRes.json();
+      if(me?.logged_in) document.getElementById('meName').innerText = me.name || 'Admin';
+
+      const sRes = await fetch('/api/admin/summary');
+      const s = await sRes.json();
+      if(sRes.ok) document.getElementById('totalLogs').innerText = s.total_logs ?? 0;
+
+      const rRes = await fetch('/api/admin/users?role=resident');
+      const r = await rRes.json();
+      if(rRes.ok) document.getElementById('residentCount').innerText = (r.users||[]).length;
+
+      const cRes = await fetch('/api/admin/users?role=collector');
+      const c = await cRes.json();
+      if(cRes.ok) document.getElementById('collectorCount').innerText = (c.users||[]).length;
+    }catch(e){ /* ignore */ }
+  }
+  load();
+</script>
+{% endblock %}

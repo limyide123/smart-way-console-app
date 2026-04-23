@@ -1,0 +1,95 @@
+{% extends "base_phone.html" %}
+{% set title = "Send Notification" %}
+
+{% block content %}
+<div class="topbar">
+  <button class="back" onclick="window.location.href='/admin/home'">⬅ Back</button>
+  <div style="font-weight:700">Notify</div>
+  <div></div>
+</div>
+
+<h1>Send Notification</h1>
+
+<div class="panel">
+  <div class="hint">Send an announcement to residents, or target a single resident by user ID.</div>
+
+  <label>Send to</label>
+  <select id="mode" onchange="switchMode()">
+    <option value="all">All residents</option>
+    <option value="user">Specific resident (User ID)</option>
+  </select>
+
+  <div id="userBox" style="display:none">
+    <label>User ID</label>
+    <input id="user_id" placeholder="e.g. 5" inputmode="numeric" pattern="[0-9]*" />
+  </div>
+
+  <label>Message</label>
+  <textarea id="message" rows="5" placeholder="Type your message..."></textarea>
+
+  <div class="row">
+    <button onclick="send()">Send</button>
+    <button class="secondary" onclick="loadList()">Load Residents</button>
+  </div>
+
+  <div id="msg" class="status" style="display:none"></div>
+</div>
+
+<div class="panel" style="margin-top:12px">
+  <div class="row space" style="margin:0">
+    <div style="font-weight:700">Quick User List</div>
+    <div class="hint" style="margin:0">(for reference)</div>
+  </div>
+  <div id="users" style="margin-top:10px"></div>
+</div>
+
+<script>
+  function showMsg(text, ok=true){
+    const m = document.getElementById('msg');
+    m.style.display = 'block';
+    m.className = 'status ' + (ok ? 'ok' : 'err');
+    m.innerText = text;
+  }
+  function switchMode(){
+    const mode = document.getElementById('mode').value;
+    document.getElementById('userBox').style.display = (mode==='user') ? 'block' : 'none';
+  }
+
+  async function send(){
+    const mode = document.getElementById('mode').value;
+    const payload = { message: document.getElementById('message').value.trim(), type: 'admin' };
+    if(mode==='all') payload.role = 'resident';
+    else payload.user_id = document.getElementById('user_id').value.trim();
+
+    const res = await fetch('/api/admin/notify', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if(!res.ok){ showMsg(data.error || 'Send failed', false); return; }
+    showMsg(`Sent to ${data.sent} user(s).`);
+    document.getElementById('message').value = '';
+  }
+
+  async function loadList(){
+    const box = document.getElementById('users');
+    box.innerHTML = '<div class="hint">Loading...</div>';
+    const res = await fetch(`/api/admin/users?role=resident`);
+    const data = await res.json();
+    if(!res.ok){ box.innerHTML = `<div class="hint">${(data.error||'Load failed')}</div>`; return; }
+    const users = data.users || [];
+    if(!users.length){ box.innerHTML = '<div class="hint">No users.</div>'; return; }
+    box.innerHTML = users.map(u => (
+      `<div style="padding:10px;border:1px solid #e7e7ef;border-radius:12px;margin-top:8px;background:#fff">
+         <div style="display:flex;justify-content:space-between">
+           <div style="font-weight:700">#${u.user_id} ${u.name||''}</div>
+           <div style="color:#666;font-size:12px">${u.phone||''}</div>
+         </div>
+         <div style="color:#666;font-size:12px;margin-top:6px">${(u.address||'') ? (u.address) : ''}</div>
+       </div>`
+    )).join('');
+  }
+
+  switchMode();
+  loadList();
+</script>
+{% endblock %}
