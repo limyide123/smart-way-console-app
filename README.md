@@ -175,7 +175,9 @@ Use these accounts for testing:
 ## Authors
 
 * Lim Yi De
-* (Add your team members here)
+* Lim Ren Liang
+* Wong Lei
+* Sulaiman
 
 ---
 
